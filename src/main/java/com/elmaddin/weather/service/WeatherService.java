@@ -1,5 +1,6 @@
 package com.elmaddin.weather.service;
 
+import com.elmaddin.weather.constants.Constants;
 import com.elmaddin.weather.dto.WeatherDto;
 import com.elmaddin.weather.dto.WeatherResponse;
 import com.elmaddin.weather.model.WeatherEntity;
@@ -15,15 +16,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @Service
-public class WeatherService{
+public class WeatherService {
 
-    private static final String API_URL = "http://api.weatherstack.com/current?access_key=7b868d16dd8ebdf27853f8f040874248&query=";
     private final WeatherRepository weatherRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate;
 
     public WeatherService(WeatherRepository weatherRepository,
-                              RestTemplate restTemplate) {
+                          RestTemplate restTemplate) {
         this.weatherRepository = weatherRepository;
         this.restTemplate = restTemplate;
     }
@@ -31,15 +31,18 @@ public class WeatherService{
     public WeatherDto getWeatherByCityName(String city) {
         Optional<WeatherEntity> weatherEntityOptional = weatherRepository.findFirstByRequestedCityNameOrderByUpdateTimeDesc(city);
 
-        if (!weatherEntityOptional.isPresent()) {
-            return WeatherDto.convert(getWeatherFromWeatherStack(city));
-        }
-        return WeatherDto.convert(weatherEntityOptional.get());
+        return weatherEntityOptional.map(weather -> {
+            if (weather.getUpdateTime().isBefore(LocalDateTime.now().minusMinutes(30))) {
+                return WeatherDto.convert(getWeatherFromWeatherStack(city));
+            }
+            return WeatherDto.convert(weather);
+        }).orElseGet(() -> WeatherDto.convert(getWeatherFromWeatherStack(city)));
+
     }
 
 
     private WeatherEntity getWeatherFromWeatherStack(String city) {
-        ResponseEntity<String> responseEntity = restTemplate.getForEntity(API_URL + city, String.class);
+        ResponseEntity<String> responseEntity = restTemplate.getForEntity(getWeatherStackUrl(city), String.class);
 
         try {
             WeatherResponse weatherResponse = objectMapper.readValue(responseEntity.getBody(), WeatherResponse.class);
@@ -59,6 +62,10 @@ public class WeatherService{
                 LocalDateTime.now(),
                 LocalDateTime.parse(weatherResponse.location().localtime(), dateTimeFormatter));
         return weatherRepository.save(weatherEntity);
+    }
+
+    private String getWeatherStackUrl(String city) {
+        return Constants.API_URL + Constants.ACCESS_KEY_PARAM + Constants.API_KEY + Constants.QUERY_KEY_PARAM + city;
     }
 
 }
