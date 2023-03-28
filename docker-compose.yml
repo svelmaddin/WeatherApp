@@ -1,0 +1,11 @@
+version: '3.9'
+
+services:
+  api:
+    image: 'weather:latest'
+    build:
+      context: .
+    ports:
+      - "9595:8080"
+    environment:
+      - "API_KEY=${API_KEY}"

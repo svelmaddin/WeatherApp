@@ -11,4 +11,4 @@ spring:
 
 weather-stack:
   api-url: http://api.weatherstack.com/current
-  api-key: ${API-KEY:default}
+  api-key: ${API_KEY:default}
